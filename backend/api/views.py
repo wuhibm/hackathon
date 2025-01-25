@@ -6,8 +6,10 @@ from .models import User, Message
 from requests import post, get
 import json
 from django.http import HttpResponse, JsonResponse
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView
 from .serializers import MessageSerializer
+from rest_framework.response import Response
+from rest_framework import status
 # Create your views here.
 
 #Method for API calls
@@ -97,16 +99,32 @@ def message_patient(request):
     Message.objects.create(content=content, sender=user, recipient=recipient)
     return JsonResponse({"Message": "Message successfully sent"}, status=201)
 
-@login_required
-class ChannelMessages(ListAPIView):
+class ChannelMessages(RetrieveAPIView):
     serializer_class = MessageSerializer
-    def get(self, request, format=None):
-        channel = request.query_params["channel"]
+    queryset = Message.objects.all()
+    def get(self, request, channel):
+        if request.auth != None:
+            try:
+                messages = Message.objects.filter(channel=channel)
+                return Response(MessageSerializer(messages).data)
+            except:
+                Response(status=status.HTTP_400_BAD_REQUEST)
+        else:
+            Response(status=status.HTTP_400_BAD_REQUEST)
 
-@login_required
-def get_employee_messages(request):
-    pass
+
+class EmployeeMessages(RetrieveAPIView):
+    serializer_class = MessageSerializer
+    queryset = Message.objects.all()
+    def get(self, request):
+        if request.auth != None:
+            messages = []
+            for message in Message.objects.all():
+                if message.sender.role == "employee":
+                    messages.append(message)
+            return Response(MessageSerializer(messages).data)
+        else:
+            Response(status=status.HTTP_400_BAD_REQUEST)
 
 class Messages(ListAPIView):
     serializer_class = MessageSerializer
-    
